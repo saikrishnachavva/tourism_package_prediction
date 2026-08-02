@@ -1,0 +1,102 @@
+# =============================================
+# GitHub Actions Workflow - MLOps CI/CD Pipeline
+# Tourism Package Prediction
+# =============================================
+# This pipeline automates the end-to-end ML workflow:
+# 1. Data Registration & Validation
+# 2. Data Preparation (cleaning, encoding, splitting)
+# 3. Model Training (with hyperparameter tuning)
+# 4. Commit the trained model back to the repository
+
+name: Tourism Package Prediction Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Automatically triggers on push to the main branch
+
+# Grant write permissions so the pipeline can commit the model back
+permissions:
+  contents: write
+
+jobs:
+
+  # ----- Job 1: Data Registration & Validation -----
+  register-dataset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install -r tourism_package_prediction/requirements.txt
+
+      - name: Validate Dataset and Print Summary
+        run: python tourism_package_prediction/model_building/data_register.py
+
+  # ----- Job 2: Data Preparation -----
+  data-prep:
+    needs: register-dataset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install -r tourism_package_prediction/requirements.txt
+
+      - name: Run Data Preparation
+        run: python tourism_package_prediction/model_building/prep.py
+
+      - name: Upload Train/Test Splits as Workflow Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-test-data
+          path: |
+            Xtrain.csv
+            Xtest.csv
+            ytrain.csv
+            ytest.csv
+
+  # ----- Job 3: Model Training -----
+  model-training:
+    needs: data-prep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install -r tourism_package_prediction/requirements.txt
+
+      - name: Download Train/Test Workflow Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: train-test-data
+
+      - name: Model Building and Training
+        run: python tourism_package_prediction/model_building/train.py
+
+      # Commit the trained model back to the repository
+      - name: Commit and Push Trained Model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tourism_package_prediction/model/best_tourism_model.joblib
+          git commit -m "chore: update trained model [skip ci]" || echo "No changes to commit"
+          git push
