@@ -1,0 +1,3 @@
+# This directory holds the trained model file.
+# The CI/CD pipeline saves the best model here
+# and commits it back to the repository.
